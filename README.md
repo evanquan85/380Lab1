@@ -1,1 +1,1 @@
-#This is EMG analysis lab for B01.
+#This is EMG analysis lab for B01
