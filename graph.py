@@ -32,10 +32,10 @@ df['EMG'] = df['EMG'].abs()
 df['Force'] = df['Force'].abs()
 #Smooth and root-mean-square EMG
 window_size = 50
-df['EMG_smoothed'] = df['EMG'].rolling(window=window_size, center=True).mean()
+df['EMG'] = df['EMG'].rolling(window=window_size, center=True).mean()
 def calculate_rms(signal):
     return np.sqrt(np.mean(signal**2))
-df['EMG_rms'] = df['EMG'].rolling(window=1000).apply(calculate_rms, raw=True)
+df['EMG'] = df['EMG'].rolling(window=1000).apply(calculate_rms, raw=True)
 # 4 Increasing contractions
 # Determine average rectified EMG for each contraction
 # start contract_1 = 45500 | end = 47750 | length = 2250 (just over 1s)
@@ -68,10 +68,10 @@ for i, aremg in enumerate(aremg_values, 1):
 # Average EMG and Force values for each contraction
 contractions2 = ['Contraction 25%', 'Contraction 50%', 'Contraction 75%', 'Contraction 100%']
 average_emg = [
-    df['EMG_rms'].iloc[45500:47750].mean(),
-    df['EMG_rms'].iloc[54500:56750].mean(),
-    df['EMG_rms'].iloc[69100:71350].mean(),
-    df['EMG_rms'].iloc[78800:81050].mean()
+    df['EMG'].iloc[45500:47750].mean(),
+    df['EMG'].iloc[54500:56750].mean(),
+    df['EMG'].iloc[69100:71350].mean(),
+    df['EMG'].iloc[78800:81050].mean()
 ]
 average_force = [
     df['Force'].iloc[45500:47750].mean(),
@@ -129,17 +129,11 @@ def plot_cumulative_integral(contractions, signal_column, sampling_rate):
     plt.title('Cumulative Integral of EMG Signal')
     plt.legend()
     plt.show()
-plot_cumulative_integral(contractions, 'EMG_rms', sampling_rate)
+plot_cumulative_integral(contractions, 'EMG', sampling_rate)
 # Fatiguing contractions
 # Identify series of fatiguing contractions
-# total samples = 405529
-fig, ax3 = plt.subplots(figsize=(10, 6))
-ax3.plot(df['EMG'])
-ax3.set_xlim(100000, 120000)
-plt.show()
-start_index = 100000
-filtered_df = df.iloc[start_index:]
-def identify_contractions(signal, threshold, min_duration, sampling_rate, start_offset):
+# total samples = 405529 - use df.shape
+def identify_contractions(signal, threshold, min_duration, sampling_rate, start_offset, end_index):
     """
     Identify contraction start and end points based on a signal threshold.
     """
@@ -152,14 +146,20 @@ def identify_contractions(signal, threshold, min_duration, sampling_rate, start_
             start, end = indices[i], indices[i + 1]
             duration = (end - start) / sampling_rate
             if duration >= min_duration:
-                contractions.append({'start': start + start_offset, 'end': end + start_offset})
+                start_adj = start + start_offset
+                end_adj = min(end + start_offset, end_index)  # Crop end to max_index
+                if start_adj < end_index:  # Only include valid contractions
+                    contractions.append({'start': start_adj, 'end': end_adj})
     return contractions
 
+
 # Parameters
-threshold = 0.33  # Threshold for identifying contractions (adjust as needed)
+threshold = 0.4  # Threshold for identifying contractions (adjust as needed)
 min_duration = 0.5  # Minimum duration of a contraction in seconds
+start_index = 110000
+end_index = 405529
 start_offset = start_index
-contractions = identify_contractions(df['Force'], threshold, min_duration, sampling_rate, start_offset)
+contractions = identify_contractions(df['Force'], threshold, min_duration, sampling_rate, start_offset, end_index)
 
 
 # Calculate AREMG for each contraction
@@ -174,4 +174,62 @@ for i, contraction in enumerate(contractions):
     start, end = contraction['start'], contraction['end']
     print(f"Contraction {i + 1}: Start = {start}, End = {end}, AREMG = {aremg_values[i]:.4f} mV")
 
+# Visualize average EMG of fatiguing contractions over time (column)
+contraction_numbers = list(range(1, len(aremg_values) + 1))  # Contraction numbers (1, 2, 3, ...)
+average_emg_values = [value for value in aremg_values if not np.isnan(value)]  # Filter out NaN values
 
+plt.figure(figsize=(12, 8))
+plt.bar(contraction_numbers, average_emg_values, color='blue', alpha=0.7)
+plt.xlabel('Contraction Number')
+plt.ylabel('Average EMG Value (mV)')
+plt.title('Average EMG Value vs Contraction Number')
+plt.xticks(contraction_numbers)  # Ensure x-axis matches contraction numbers
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+
+# Show the plot
+plt.show()
+
+# Identify first, 6th, last contractions from fatigue trial
+# Calculate cumulative integral for last 2 seconds of each contraction
+# 2 seconds = 4000Hz
+"""
+Contraction 1: Start = 129659, End = 137884, AREMG = 0.1261 mV - 2 seconds = [133884:137884]
+Contraction 6: Start = 188303, End = 192398, AREMG = 0.0465 mV - 2 seconds = [188398:192398]
+Contraction 25: Start = 401431, End = 405529, AREMG = 0.0621 mV - 2 seconds = [401529:405529]
+"""
+time_interval = 1/sampling_rate
+
+last_2_second_ranges = {
+    "Contraction 1": (133884, 137884),
+    "Contraction 6": (188398, 192398),
+    "Contraction 25": (401529, 405529),
+}
+
+# Calculate cumulative integral for each contraction
+cumulative_integrals = {}
+for name, (start, end) in last_2_second_ranges.items():
+    segment = df['EMG'].iloc[start:end]
+    cumulative_integral = np.cumsum(segment) * time_interval  # Convert to mV * s
+    cumulative_integrals[name] = cumulative_integral
+
+plt.figure(figsize=(10, 6))
+
+for name, (start, end) in last_2_second_ranges.items():
+    segment = df['EMG'].iloc[start:end]
+    cumulative_integral = np.cumsum(segment) * time_interval  # Convert to mV * s
+    time = np.arange(0, len(segment)) * time_interval  # Time in seconds for the segment
+
+    # Smooth scatter plot
+    plt.plot(time, cumulative_integral, label=f'{name} Cumulative Integral')
+
+# Customize the plot
+plt.xlabel('Time (seconds)')
+plt.ylabel('Cumulative Integral (mV*s)')
+plt.title('Cumulative Integral of Last 2 Seconds for Selected Contractions')
+plt.legend()
+plt.grid(alpha=0.5)
+plt.tight_layout()
+
+# Show the plot
+plt.show()
