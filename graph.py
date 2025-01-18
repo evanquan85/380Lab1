@@ -72,9 +72,6 @@ def calculate_aremg(df, contractions):
 # Calculate AREM for each contraction
 aremg_values = calculate_aremg(df, contractions)
 
-# Print the average rectified EMG for each contraction
-for i, aremg in enumerate(aremg_values, 1):
-    print(f"Contraction {i} Average Rectified EMG (AREMG): {aremg:.4f} mV")
 # Plot average EMG & Force in column plot - HAHA
 # Average EMG and Force values for each contraction
 contractions2 = ['Contraction 25%', 'Contraction 50%', 'Contraction 75%', 'Contraction 100%']
@@ -153,9 +150,10 @@ def calculate_cumulative_integral(contractions, signal_column, sampling_rate):
 def plot_cumulative_integral(cumulative_integrals1):
     # plot each contraction
     plt.figure(figsize=(10, 6))
-    for name, cumulative_integral1 in cumulative_integrals1.items():
+    custom_labels = ['25% Contraction', '50% Contraction', '75% Contraction', '100% Contraction']  # Custom labels
+    for (name, cumulative_integral1), label in zip(cumulative_integrals1.items(), custom_labels):
         time = np.arange(0, len(cumulative_integral1)) / sampling_rate
-        plt.plot(time, cumulative_integral1, label=f'{name}')
+        plt.plot(time, cumulative_integral1, label=label)  # Use custom label here
     plt.xlabel('Time (seconds)')
     plt.ylabel('Cumulative Integral (mV/s)')
     plt.title('Cumulative Integral of EMG Signal')
@@ -203,10 +201,6 @@ for contraction in contractions:
     aremg = df['EMG'].iloc[start:end].mean()
     aremg_values2.append(aremg)
 
-# Display results
-for i, contraction in enumerate(contractions):
-    start, end = contraction['start'], contraction['end']
-    print(f"Contraction {i + 1}: Start = {start}, End = {end}, AREMG = {aremg_values2[i]:.4f} mV")
 
 # Visualize average EMG of fatiguing contractions over time (column)
 contraction_numbers = list(range(1, len(aremg_values2) + 1))  # Contraction numbers (1, 2, 3, ...)
@@ -292,7 +286,7 @@ ax5.set_xlabel('Contraction Number', fontsize=12)
 ax5.set_ylabel('Normalized EMG (Relative to % of MVC)', fontsize=12)
 ax5.set_title('Normalized Increasing Force Contractions', fontsize=14)
 ax5.set_xticks(increasing_force_contractions)
-ax5.set_xticklabels([f'{i}% Contraction' for i in increasing_force_contractions])
+ax5.set_xticklabels([f'{round(i)}% Contraction' for i in increasing_force_contractions])
 ax5.grid(True, axis='y', linestyle='--', alpha=0.7)
 ax5.legend()
 # Plot for fatiguing contractions
@@ -310,10 +304,30 @@ plt.tight_layout()
 plt.show()
 
 # Create a table containing all the values that you calculated for each experiment
+for key, value in cumulative_integrals1.items():
+    total = np.sum(value)  # Calculate the total of the array
+for key, value in cumulative_integrals2.items():
+    total2 = np.sum(value)
+# Normalize lengths
+max_length = max(len(average_emg), len(average_force), len(aremg_values2), 1)
+# Extend each array to match the max_length with NaN values
+average_emg = np.pad(average_emg, (0, max_length - len(average_emg)), constant_values=np.nan)
+average_force = np.pad(average_force, (0, max_length - len(average_force)), constant_values=np.nan)
+aremg_values2 = np.pad(aremg_values2, (0, max_length - len(aremg_values2)), constant_values=np.nan)
+MVC_max = [MVC_max] * max_length  # Repeat the single value to match the length
 
 data = {
-    'Average EMG for each contraction': average_emg,
-    'Average force for each contraction': average_force,
-    'Cumulative Integral for increasing contractions': cumulative_integrals1.values,
-    'Cumulative Integral for each contraction': cumulative_integrals2
+    'Average EMG for each contraction (25, 50, 75, 100%)': average_emg,
+    'Average force for each contraction(25, 50, 75, 100%)': average_force,
+    'Cumulative Integral for increasing contractions(25, 50, 75, 100%)': total,
+    'Cumulative Integral for each contraction(1st, 6th, 25th)': total2,
+    'Average EMG for fatiguing contractions (1-25th)': aremg_values2,
+    'Maximal voluntary contraction max mV reading': MVC_max
 }
+
+df = pd.DataFrame(data)
+pd.set_option('display.max_rows', 30)  # Show all rows
+pd.set_option('display.max_columns', 30)  # Show all columns
+pd.set_option('display.width', 1000)  # Set the width of the output
+pd.set_option('display.float_format', '{:.6f}'.format)  # Format floats for better readability
+print(df)
