@@ -193,14 +193,18 @@ end_index = 405529
 start_offset = start_index
 contractions = identify_contractions(df['Force'], threshold, min_duration, sampling_rate, start_offset, end_index)
 
-
 # Calculate AREMG for each contraction
 aremg_values2 = []
 for contraction in contractions:
     start, end = contraction['start'], contraction['end']
+    contractions[5]['start'] = 181000  # Update the start value for the 6th contraction
+    contractions[5]['end'] = 188000  # Update the end value for the 6th contraction
+    contractions[6]['start'] = 191000  # Update the start value for the 7th contraction
+    contractions[6]['end'] = 199000  # Update the end value for the 7th contraction
+    contractions[7]['start'] = 203300  # Update the start value for the 8th contraction
+    contractions[7]['end'] = 210500  # Update the end value for 8th contraction
     aremg = df['EMG'].iloc[start:end].mean()
     aremg_values2.append(aremg)
-
 
 # Visualize average EMG of fatiguing contractions over time (column)
 contraction_numbers = list(range(1, len(aremg_values2) + 1))  # Contraction numbers (1, 2, 3, ...)
@@ -223,17 +227,16 @@ plt.show()
 # 2 seconds = 4000Hz
 """
 Contraction 1: Start = 129659, End = 137884, AREMG = 0.1261 mV - 2 seconds = [133884:137884]
-Contraction 6: Start = 188303, End = 192398, AREMG = 0.0465 mV - 2 seconds = [188398:192398]
+Contraction 6: Start = 184000, End = 188000, AREMG = 0.0465 mV - 2 seconds = [184000:188000]
 Contraction 25: Start = 401431, End = 405529, AREMG = 0.0621 mV - 2 seconds = [401529:405529]
 """
 time_interval = 1/sampling_rate
 
 last_2_second_ranges = {
     "Contraction 1": (133884, 137884),
-    "Contraction 6": (188398, 192398),
+    "Contraction 6": (184000, 188000),
     "Contraction 25": (401529, 405529),
 }
-
 # Calculate cumulative integral for each contraction
 cumulative_integrals2 = {}
 for name, (start, end) in last_2_second_ranges.items():
@@ -271,7 +274,7 @@ Normalizing EMG data means dividing each data point in EMG signal by the MVC max
 Normalized EMG = EMG/MVC max. Values range between 0 and 1 (convert to percentage)
 """
 increasing_force_emg = [0.0519, 0.0595, 0.0799, 0.1252]
-fatiguing_contractions_emg = [0.1261, 0.0465, 0.0621]
+fatiguing_contractions_emg = [0.1261, 0.1241, 0.0621]
 normalized_increasing_force = [value / MVC_max for value in increasing_force_emg]
 normalized_fatiguing_contractions = [value / MVC_max for value in fatiguing_contractions_emg]
 increasing_force_contractions = [25, 50, 75, 100]  # Increasing force contractions
@@ -283,7 +286,7 @@ increasing_force_contractions = [x - (bar_width - 1) / 2 for x in increasing_for
 ax5.bar(increasing_force_contractions, normalized_increasing_force, label='Normalized Increasing Force EMG',
         color='blue', width = 2)
 ax5.set_xlabel('Contraction Number', fontsize=12)
-ax5.set_ylabel('Normalized EMG (Relative to % of MVC)', fontsize=12)
+ax5.set_ylabel('Normalized EMG (Relative to MVC)', fontsize=12)
 ax5.set_title('Normalized Increasing Force Contractions', fontsize=14)
 ax5.set_xticks(increasing_force_contractions)
 ax5.set_xticklabels([f'{round(i)}% Contraction' for i in increasing_force_contractions])
