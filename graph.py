@@ -1,12 +1,9 @@
 """
-0.5 msec/sample	Sample rate =	2000Hz
+0.5 msec/sample
+Sample rate =	2000Hz
 2 channels
 EMG (5 - 250 Hz w/notch)
-mV
-Clench Force
-kg
 """
-
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -238,11 +235,26 @@ last_2_second_ranges = {
     "Contraction 25": (401529, 405529),
 }
 # Calculate cumulative integral for each contraction
-cumulative_integrals2 = {}
-for name, (start, end) in last_2_second_ranges.items():
-    segment = df['EMG'].iloc[start:end]
-    cumulative_integral = np.cumsum(segment) * time_interval  # Convert to mV * s
-    cumulative_integrals2[name] = cumulative_integral
+def calculate_cumulative_integrals2(last_2_second_ranges, df, signal_column, time_interval):
+    """
+    Calculate the cumulative integrals for specified signal segments.
+
+    Parameters:
+        last_2_second_ranges (dict): Dictionary where keys are names and values are tuples of (start, end) indices.
+        df (pandas.DataFrame): DataFrame containing the signal data.
+        signal_column (str): Name of the column in the DataFrame containing the signal data.
+        time_interval (float): Time interval (in seconds) between samples, used for scaling.
+
+    Returns:
+        dict: A dictionary where keys are the segment names and values are the cumulative integrals as arrays.
+    """
+    cumulative_integrals = {}
+    for name, (start, end) in last_2_second_ranges.items():
+        segment = df[signal_column].iloc[start:end]
+        cumulative_integrals[name] = np.cumsum(segment) * time_interval
+    return cumulative_integrals
+
+cumulative_integrals2 = calculate_cumulative_integrals2(last_2_second_ranges, df, 'EMG', time_interval)
 
 plt.figure(figsize=(10, 6))
 
@@ -305,27 +317,31 @@ ax6.grid(True, axis='y', linestyle='--', alpha=0.7)
 ax6.legend()
 plt.tight_layout()
 plt.show()
-
 # Create a table containing all the values that you calculated for each experiment
-for key, value in cumulative_integrals1.items():
-    total = np.sum(value)  # Calculate the total of the array
-for key, value in cumulative_integrals2.items():
-    total2 = np.sum(value)
 # Normalize lengths
+# Calculate totals for cumulative_integrals1
+totals1 = [np.sum(value) for value in cumulative_integrals1.values()]
+totals2 = [np.sum(value) for value in cumulative_integrals2.values()]
+# Pad the shorter list with NaN
+totals1 += [np.nan] * (25 - len(totals1))
+totals2 += [np.nan] * (25 - len(totals2))
 max_length = max(len(average_emg), len(average_force), len(aremg_values2), 1)
 # Extend each array to match the max_length with NaN values
 average_emg = np.pad(average_emg, (0, max_length - len(average_emg)), constant_values=np.nan)
 average_force = np.pad(average_force, (0, max_length - len(average_force)), constant_values=np.nan)
 aremg_values2 = np.pad(aremg_values2, (0, max_length - len(aremg_values2)), constant_values=np.nan)
-MVC_max = [MVC_max] * max_length  # Repeat the single value to match the length
+# Create an array filled with NaN
+mvc_max_column = np.full(25, np.nan)
+# Assign the single value to the first row
+mvc_max_column[0] = MVC_max
 
 data = {
     'Average EMG for each contraction (25, 50, 75, 100%)': average_emg,
     'Average force for each contraction(25, 50, 75, 100%)': average_force,
-    'Cumulative Integral for increasing contractions(25, 50, 75, 100%)': total,
-    'Cumulative Integral for each contraction(1st, 6th, 25th)': total2,
+    'Cumulative Integral for increasing contractions(25, 50, 75, 100%)': totals1,
+    'Cumulative Integral for each contraction(1st, 6th, 25th)': totals2,
     'Average EMG for fatiguing contractions (1-25th)': aremg_values2,
-    'Maximal voluntary contraction max mV reading': MVC_max
+    'Maximal voluntary contraction max mV reading': mvc_max_column
 }
 
 df = pd.DataFrame(data)
@@ -334,3 +350,4 @@ pd.set_option('display.max_columns', 30)  # Show all columns
 pd.set_option('display.width', 1000)  # Set the width of the output
 pd.set_option('display.float_format', '{:.6f}'.format)  # Format floats for better readability
 print(df)
+
