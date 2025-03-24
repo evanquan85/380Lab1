@@ -3,6 +3,7 @@
 Sample rate =	2000Hz
 2 channels
 EMG (5 - 250 Hz w/notch)
+=O6+(AVERAGE(N6:N7)*(1/2000))
 """
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -34,7 +35,6 @@ def calculate_offsets(df):
         df['Force']= df['Force'] - force_mean
     return df
 df = calculate_offsets(df)
-
 #Full wave rectify signal
 df['EMG'] = df['EMG'].abs()
 df['Force'] = df['Force'].abs()
@@ -68,7 +68,6 @@ def calculate_aremg(df, contractions):
 
 # Calculate AREM for each contraction
 aremg_values = calculate_aremg(df, contractions)
-
 # Plot average EMG & Force in column plot - HAHA
 # Average EMG and Force values for each contraction
 contractions2 = ['Contraction 25%', 'Contraction 50%', 'Contraction 75%', 'Contraction 100%']
